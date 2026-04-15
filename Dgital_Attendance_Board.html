@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Student Attendance Manager</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap');
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── ANIMATED BG ── */
+    @keyframes gradShift {
+      0%   { background-position: 0% 50%; }
+      50%  { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    @keyframes floatBlob {
+      0%,100% { transform: translateY(0) scale(1); }
+      50%      { transform: translateY(-26px) scale(1.07); }
+    }
+    @keyframes popIn {
+      from { transform: scale(0.88); opacity: 0; }
+      to   { transform: scale(1);    opacity: 1; }
+    }
+    @keyframes slideIn {
+      from { transform: translateX(60px); opacity: 0; }
+      to   { transform: translateX(0);    opacity: 1; }
+    }
+
+    body {
+      font-family: 'Poppins', sans-serif;
+      min-height: 100vh;
+      background: linear-gradient(135deg,#ffecd2,#fcb69f,#a1c4fd,#c2e9fb,#d4fc79,#96e6a1,#ffecd2);
+      background-size: 400% 400%;
+      animation: gradShift 14s ease infinite;
+      color: #1a1040;
+      overflow-x: hidden;
+    }
+    body::before, body::after {
+      content:''; position:fixed; border-radius:50%;
+      filter:blur(72px); opacity:0.35; pointer-events:none; z-index:0;
+    }
+    body::before {
+      width:440px; height:440px;
+      background:radial-gradient(circle,#ff6fd8,#3813c2);
+      top:-90px; left:-90px;
+      animation:floatBlob 9s ease-in-out infinite;
+    }
+    body::after {
+      width:380px; height:380px;
+      background:radial-gradient(circle,#43e97b,#38f9d7);
+      bottom:-70px; right:-70px;
+      animation:floatBlob 11s ease-in-out infinite reverse;
+    }
+
+    /* ── NAVBAR ── */
+    .navbar {
+      position:sticky; top:0; z-index:50;
+      background:#ffffffcc; backdrop-filter:blur(16px);
+      border-bottom:2px solid #e9d5ff;
+      display:flex; align-items:center; justify-content:space-between;
+      padding:0 28px; height:64px;
+      box-shadow:0 4px 20px #a855f722;
+      flex-wrap:wrap; gap:8px;
+    }
+    .nav-brand {
+      font-size:1.1rem; font-weight:800;
+      background:linear-gradient(90deg,#f7971e,#ff4e50,#a855f7,#1fa2ff);
+      background-clip:text; -webkit-background-clip:text;
+      -webkit-text-fill-color:transparent;
+      white-space:nowrap;
+    }
+    .nav-tabs { display:flex; gap:4px; flex-wrap:wrap; }
+    .nav-tab {
+      padding:7px 16px; border-radius:10px; border:2px solid transparent;
+      font-size:0.82rem; font-weight:700; font-family:inherit;
+      cursor:pointer; transition:all 0.22s;
+      background:transparent; color:#7c3aed; white-space:nowrap;
+    }
+    .nav-tab:hover { background:#f3e8ff; border-color:#c084fc; box-shadow:0 0 12px #a855f755; }
+    .nav-tab.active {
+      background:linear-gradient(135deg,#a855f7,#6366f1);
+      color:#fff; border-color:transparent;
+      box-shadow:0 4px 14px #a855f766;
+    }
+
+    /* ── PAGES ── */
+    .page { display:none; padding:28px 24px 52px; position:relative; z-index:1; }
+    .page.active { display:block; animation:slideIn 0.3s ease; }
+    .page-title {
+      text-align:center;
+      font-size:clamp(1.4rem,4vw,2.3rem); font-weight:800;
+      background:linear-gradient(90deg,#f7971e,#ff4e50,#a855f7,#1fa2ff);
+      background-clip:text; -webkit-background-clip:text;
+      -webkit-text-fill-color:transparent;
+      margin-bottom:26px; letter-spacing:0.5px;
+      filter:drop-shadow(0 2px 8px #f7971e44);
+    }
+
+    /* ── GLASS CARD ── */
+    .glass {
+      background:#ffffffd4; backdrop-filter:blur(14px);
+      border:2px solid #e9d5ff; border-radius:18px;
+      box-shadow:0 4px 24px #a855f71a;
+    }
+
+    /* ── SECTION LABEL ── */
+    .section-label {
+      font-size:1rem; font-weight:700; color:#7c3aed;
+      margin-bottom:14px; display:flex; align-items:center; gap:8px;
+    }
+
+    /* ════════════════════════════════
+       PAGE 1 — STUDENTS
+    ════════════════════════════════ */
+    .students-toolbar {
+      display:flex; gap:10px; flex-wrap:wrap;
+      align-items:center; margin-bottom:20px;
+    }
+    .input-field {
+      background:#f5f3ffcc; border:2px solid #c084fc; color:#3b0764;
+      padding:9px 14px; border-radius:10px; font-size:0.9rem;
+      font-family:inherit; outline:none;
+      transition:border-color 0.3s,box-shadow 0.3s;
+    }
+    .input-field:focus { border-color:#a855f7; box-shadow:0 0 0 3px #a855f733; }
+    .input-field::placeholder { color:#c084fc; }
+
+    .btn-primary {
+      padding:9px 20px; border:none; border-radius:10px;
+      background:linear-gradient(135deg,#a855f7,#6366f1);
+      color:#fff; font-size:0.9rem; font-weight:700; font-family:inherit;
+      cursor:pointer; transition:all 0.22s; white-space:nowrap;
+    }
+    .btn-primary:hover { box-shadow:0 0 18px #a855f7cc; transform:scale(1.04); }
+
+    .btn-danger {
+      padding:7px 14px; border:2px solid #fca5a5; border-radius:8px;
+      background:#fee2e2; color:#b91c1c;
+      font-size:0.8rem; font-weight:700; font-family:inherit;
+      cursor:pointer; transition:all 0.2s;
+    }
+    .btn-danger:hover { background:#ff073a; color:#fff; border-color:#ff073a; box-shadow:0 0 12px #ff073acc; transform:scale(1.05); }
+
+    .btn-info {
+      padding:7px 14px; border:2px solid #93c5fd; border-radius:8px;
+      background:#dbeafe; color:#1d4ed8;
+      font-size:0.8rem; font-weight:700; font-family:inherit;
+      cursor:pointer; transition:all 0.2s;
+    }
+    .btn-info:hover { background:#00cfff; color:#fff; border-color:#00cfff; box-shadow:0 0 12px #00cfffcc; transform:scale(1.05); }
+
+    .students-grid {
+      display:grid;
+      grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+      gap:14px; margin-bottom:0;
+    }
+    .student-chip {
+      background:#ffffffd4; backdrop-filter:blur(10px);
+      border:2px solid #e9d5ff; border-radius:14px;
+      padding:14px 16px;
+      display:flex; align-items:center; justify-content:space-between; gap:8px;
+      transition:all 0.2s; cursor:pointer;
+    }
+    .student-chip:hover { border-color:#c084fc; box-shadow:0 6px 20px #a855f733; transform:translateY(-2px); }
+    .student-chip.selected { border-color:#a855f7; background:#f3e8ffdd; box-shadow:0 0 0 3px #a855f733; }
+    .chip-name { font-weight:700; font-size:0.92rem; color:#3b0764; }
+    .chip-roll { font-size:0.75rem; color:#9ca3af; margin-top:2px; }
+    .chip-actions { display:flex; gap:6px; }
+
+    .empty-state {
+      text-align:center; padding:40px 20px;
+      color:#a78bfa; font-size:0.95rem; font-weight:600;
+    }
+    .empty-state .emoji { font-size:2.5rem; display:block; margin-bottom:10px; }
+
+    /* ════════════════════════════════
+       PAGE 2 — MARK ATTENDANCE
+    ════════════════════════════════ */
+    .mark-controls {
+      display:flex; gap:12px; flex-wrap:wrap;
+      align-items:center; margin-bottom:24px;
+    }
+    .mark-controls select {
+      background:#f5f3ffcc; border:2px solid #c084fc; color:#3b0764;
+      padding:9px 14px; border-radius:10px; font-size:0.9rem;
+      font-family:inherit; outline:none; min-width:180px;
+      transition:border-color 0.3s;
+    }
+    .mark-controls select:focus { border-color:#a855f7; box-shadow:0 0 0 3px #a855f733; }
+    .mark-controls input[type="date"] {
+      background:#ffffffcc; border:2px solid #c084fc; color:#3b0764;
+      padding:9px 14px; border-radius:10px; font-size:0.9rem;
+      font-family:inherit; outline:none; cursor:pointer;
+      transition:border-color 0.3s;
+    }
+    .mark-controls input[type="date"]:focus { border-color:#a855f7; box-shadow:0 0 0 3px #a855f733; }
+
+    /* bulk action bar */
+    .bulk-bar {
+      display:flex; gap:10px; flex-wrap:wrap;
+      align-items:center; margin-bottom:18px;
+    }
+    .bulk-label { font-size:0.85rem; font-weight:600; color:#7c3aed; }
+    .btn-bulk-present {
+      padding:7px 18px; border:2px solid #6ee7b7; border-radius:9px;
+      background:#d1fae5; color:#065f46;
+      font-size:0.85rem; font-weight:700; font-family:inherit; cursor:pointer;
+      transition:all 0.22s;
+    }
+    .btn-bulk-present:hover {
+      background:#39ff14; color:#003300; border-color:#39ff14;
+      box-shadow:0 0 16px #39ff14cc; transform:scale(1.04);
+    }
+    .btn-bulk-absent {
+      padding:7px 18px; border:2px solid #fca5a5; border-radius:9px;
+      background:#fee2e2; color:#991b1b;
+      font-size:0.85rem; font-weight:700; font-family:inherit; cursor:pointer;
+      transition:all 0.22s;
+    }
+    .btn-bulk-absent:hover {
+      background:#ff073a; color:#fff; border-color:#ff073a;
+      box-shadow:0 0 16px #ff073acc; transform:scale(1.04);
+    }
+
+    /* attendance table */
+    .att-table-wrap { overflow-x:auto; border-radius:14px; border:2px solid #e9d5ff; }
+    .att-table {
+      width:100%; border-collapse:collapse;
+      font-size:0.88rem; min-width:520px;
+    }
+    .att-table thead tr { background:linear-gradient(90deg,#f3e8ff,#ede9fe); }
+    .att-table th {
+      padding:13px 16px; text-align:left; color:#7c3aed;
+      font-weight:700; letter-spacing:0.4px; white-space:nowrap;
+      border-bottom:2px solid #e9d5ff;
+    }
+    .att-table tbody tr { border-bottom:1px solid #f3e8ff; transition:background 0.18s; }
+    .att-table tbody tr:nth-child(even) { background:#faf5ff44; }
+    .att-table tbody tr:hover { background:#f3e8ffaa; }
+    .att-table td { padding:11px 16px; color:#4c1d95; white-space:nowrap; }
+
+    .att-btn-group { display:flex; gap:8px; }
+    .att-btn {
+      padding:6px 16px; border-radius:8px; border:2px solid transparent;
+      font-size:0.82rem; font-weight:700; font-family:inherit;
+      cursor:pointer; transition:all 0.2s; min-width:80px;
+      display:flex; align-items:center; justify-content:center; gap:4px;
+    }
+    .att-btn.present-btn { background:#d1fae5; color:#065f46; border-color:#6ee7b7; }
+    .att-btn.present-btn:hover {
+      background:#39ff14; color:#003300; border-color:#39ff14;
+      box-shadow:0 0 14px #39ff14cc; transform:scale(1.05);
+    }
+    .att-btn.present-btn.active { background:#22c55e; color:#fff; border-color:#16a34a; box-shadow:0 0 12px #22c55e88; }
+    .att-btn.absent-btn  { background:#fee2e2; color:#991b1b; border-color:#fca5a5; }
+    .att-btn.absent-btn:hover {
+      background:#ff073a; color:#fff; border-color:#ff073a;
+      box-shadow:0 0 14px #ff073acc; transform:scale(1.05);
+    }
+    .att-btn.absent-btn.active  { background:#ef4444; color:#fff; border-color:#dc2626; box-shadow:0 0 12px #ef444488; }
+
+    .status-pill {
+      display:inline-flex; align-items:center; gap:5px;
+      padding:4px 12px; border-radius:20px; font-size:0.78rem; font-weight:700;
+    }
+    .status-pill.present { background:#dcfce7; color:#15803d; border:1.5px solid #86efac; }
+    .status-pill.absent  { background:#fee2e2; color:#b91c1c; border:1.5px solid #fca5a5; }
+    .status-pill.none    { background:#f3f4f6; color:#9ca3af; border:1.5px solid #e5e7eb; }
+
+    /* ════════════════════════════════
+       PAGE 3 — HISTORY
+    ════════════════════════════════ */
+    .filter-bar { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:18px; }
+    .filter-bar input, .filter-bar select {
+      background:#f5f3ffcc; border:2px solid #c084fc; color:#3b0764;
+      padding:8px 14px; border-radius:10px; font-size:0.85rem;
+      font-family:inherit; outline:none;
+      transition:border-color 0.3s; min-width:140px;
+    }
+    .filter-bar input:focus, .filter-bar select:focus { border-color:#a855f7; box-shadow:0 0 0 3px #a855f733; }
+    .filter-bar select option { background:#fff; color:#3b0764; }
+    .hist-table-wrap { overflow-x:auto; border-radius:14px; border:2px solid #e9d5ff; }
+    .hist-table { width:100%; border-collapse:collapse; font-size:0.88rem; min-width:560px; }
+    .hist-table thead tr { background:linear-gradient(90deg,#f3e8ff,#ede9fe); }
+    .hist-table th {
+      padding:13px 16px; text-align:left; color:#7c3aed;
+      font-weight:700; letter-spacing:0.4px; white-space:nowrap;
+      border-bottom:2px solid #e9d5ff;
+    }
+    .hist-table tbody tr { border-bottom:1px solid #f3e8ff; transition:background 0.18s; }
+    .hist-table tbody tr:nth-child(even) { background:#faf5ff44; }
+    .hist-table tbody tr:hover { background:#f3e8ffaa; }
+    .hist-table td { padding:11px 16px; color:#4c1d95; white-space:nowrap; }
+    .btn-edit-sm {
+      padding:4px 11px; border-radius:7px; font-size:0.76rem; font-weight:700;
+      font-family:inherit; cursor:pointer; border:1.5px solid #93c5fd;
+      background:#dbeafe; color:#1d4ed8; margin-right:5px; transition:all 0.2s;
+    }
+    .btn-edit-sm:hover { background:#00cfff; color:#fff; border-color:#00cfff; box-shadow:0 0 10px #00cfffcc; transform:scale(1.06); }
+    .btn-del-sm {
+      padding:4px 11px; border-radius:7px; font-size:0.76rem; font-weight:700;
+      font-family:inherit; cursor:pointer; border:1.5px solid #fca5a5;
+      background:#fee2e2; color:#b91c1c; transition:all 0.2s;
+    }
+    .btn-del-sm:hover { background:#ff073a; color:#fff; border-color:#ff073a; box-shadow:0 0 10px #ff073acc; transform:scale(1.06); }
+    .empty-msg { text-align:center; color:#a78bfa; padding:32px; font-size:0.92rem; font-weight:600; }
+
+    /* ════════════════════════════════
+       PAGE 4 — DASHBOARD
+    ════════════════════════════════ */
+    .dash-controls { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:24px; }
+    .dash-controls select {
+      background:#f5f3ffcc; border:2px solid #c084fc; color:#3b0764;
+      padding:9px 14px; border-radius:10px; font-size:0.9rem;
+      font-family:inherit; outline:none; min-width:200px;
+    }
+    .dash-controls select:focus { border-color:#a855f7; box-shadow:0 0 0 3px #a855f733; }
+
+    .summary-cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:14px; margin-bottom:26px; }
+    .summary-card {
+      background:#ffffffd4; backdrop-filter:blur(12px);
+      border:2px solid #e9d5ff; border-radius:16px;
+      padding:18px 16px; text-align:center;
+      box-shadow:0 4px 18px #a855f71a; transition:all 0.2s;
+    }
+    .summary-card:hover { transform:translateY(-3px); box-shadow:0 10px 28px #a855f733; border-color:#c084fc; }
+    .summary-card .s-val { font-size:2rem; font-weight:800; }
+    .summary-card .s-lbl { font-size:0.75rem; font-weight:600; color:#9ca3af; margin-top:4px; }
+    .green-text { color:#16a34a; } .red-text { color:#dc2626; } .purple-text { color:#7c3aed; } .blue-text { color:#2563eb; }
+
+    .dash-layout { display:flex; gap:22px; flex-wrap:wrap; }
+    .chart-box {
+      background:#ffffffd4; backdrop-filter:blur(12px);
+      border:2px solid #e9d5ff; border-radius:18px;
+      padding:22px; box-shadow:0 4px 20px #a855f71a;
+      flex:1 1 260px; max-width:320px;
+      display:flex; flex-direction:column; align-items:center;
+    }
+    .chart-box h3 { font-size:0.95rem; color:#7c3aed; font-weight:700; margin-bottom:14px; }
+    .chart-box canvas { max-width:240px; }
+    .subject-bars { flex:2 1 380px; display:flex; flex-direction:column; gap:12px; }
+    .bar-card {
+      background:#ffffffd4; backdrop-filter:blur(10px);
+      border:2px solid #e9d5ff; border-radius:14px;
+      padding:14px 18px; box-shadow:0 2px 12px #a855f714;
+      transition:all 0.2s;
+    }
+    .bar-card:hover { transform:translateY(-2px); box-shadow:0 8px 22px #a855f730; border-color:#c084fc; }
+    .bar-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+    .bar-name { font-weight:700; font-size:0.9rem; color:#3b0764; }
+    .bar-pct  { font-weight:800; font-size:0.95rem; }
+    .bar-sub  { font-size:0.72rem; color:#9ca3af; margin-bottom:6px; }
+    .bar-track { background:#e9d5ff; border-radius:6px; height:9px; overflow:hidden; }
+    .bar-fill  { height:100%; border-radius:6px; transition:width 0.7s ease; }
+    .bar-green { background:linear-gradient(90deg,#22c55e,#16a34a); }
+    .bar-red   { background:linear-gradient(90deg,#ef4444,#dc2626); }
+    .dot { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:6px; }
+    .badge {
+      display:inline-block; margin-top:10px; padding:6px 20px;
+      border-radius:20px; font-size:0.88rem; font-weight:700; color:#fff;
+    }
+    .eligible   { background:linear-gradient(90deg,#22c55e,#16a34a); box-shadow:0 0 12px #22c55e88; }
+    .ineligible { background:linear-gradient(90deg,#ef4444,#dc2626); box-shadow:0 0 12px #ef444488; }
+
+    /* ── MODAL ── */
+    .modal-overlay {
+      display:none; position:fixed; inset:0;
+      background:#00000055; backdrop-filter:blur(5px);
+      z-index:100; align-items:center; justify-content:center;
+    }
+    .modal-overlay.open { display:flex; }
+    .modal {
+      background:#fff; border:2px solid #c084fc; border-radius:18px;
+      padding:28px; width:min(440px,94vw);
+      box-shadow:0 20px 60px #a855f755;
+      animation:popIn 0.25s cubic-bezier(.34,1.56,.64,1);
+    }
+    .modal h3 {
+      margin-bottom:18px; font-size:1.1rem; font-weight:800;
+      background:linear-gradient(90deg,#a855f7,#f7971e);
+      background-clip:text; -webkit-background-clip:text;
+      -webkit-text-fill-color:transparent;
+    }
+    .modal label { display:block; margin-bottom:5px; color:#7c3aed; font-size:0.83rem; font-weight:600; }
+    .modal input, .modal select {
+      width:100%; background:#faf5ff; border:2px solid #c084fc; color:#3b0764;
+      padding:9px 13px; border-radius:10px; font-size:0.92rem;
+      font-family:inherit; outline:none; margin-bottom:14px; transition:border-color 0.3s;
+    }
+    .modal input:focus, .modal select:focus { border-color:#a855f7; box-shadow:0 0 0 3px #a855f733; }
+    .modal-btns { display:flex; gap:10px; justify-content:flex-end; margin-top:4px; }
+    .btn-save {
+      padding:9px 22px; background:linear-gradient(135deg,#a855f7,#6366f1);
+      color:#fff; border:none; border-radius:10px;
+      font-weight:700; font-family:inherit; cursor:pointer; transition:all 0.2s;
+    }
+    .btn-save:hover { box-shadow:0 0 18px #a855f7cc; transform:scale(1.04); }
+    .btn-cancel {
+      padding:9px 22px; background:#f3f4f6; color:#6b7280;
+      border:2px solid #e5e7eb; border-radius:10px;
+      font-weight:700; font-family:inherit; cursor:pointer; transition:background 0.2s;
+    }
+    .btn-cancel:hover { background:#e5e7eb; }
+
+    /* ── TOAST ── */
+    .toast {
+      position:fixed; bottom:26px; right:26px;
+      background:linear-gradient(135deg,#fff,#f3e8ff);
+      border:2px solid #c084fc; color:#4c1d95;
+      padding:12px 22px; border-radius:12px;
+      font-size:0.88rem; font-weight:600;
+      box-shadow:0 8px 28px #a855f755;
+      opacity:0; transform:translateY(20px);
+      transition:opacity 0.3s,transform 0.3s;
+      z-index:200; pointer-events:none; max-width:300px;
+    }
+    .toast.show { opacity:1; transform:translateY(0); }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width:480px) {
+      .navbar { padding:0 12px; height:auto; padding-top:10px; padding-bottom:10px; }
+      .page { padding:14px 12px 40px; }
+      .students-grid { grid-template-columns:1fr; }
+      .summary-cards { grid-template-columns:repeat(2,1fr); }
+      .chart-box { max-width:100%; }
+      .att-table td, .hist-table td, .att-table th, .hist-table th { padding:9px 10px; font-size:0.78rem; }
+    }
+    @media (min-width:481px) and (max-width:768px) {
+      .students-grid { grid-template-columns:repeat(2,1fr); }
+    }
+    @media (min-width:1200px) {
+      .page { padding:32px 72px 60px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── NAVBAR ── -->
+<nav class="navbar">
+  <span class="nav-brand">🎓 Student Attendance Manager</span>
+  <div class="nav-tabs">
+    <button class="nav-tab active"  onclick="showPage('students',this)">👥 Students</button>
+    <button class="nav-tab"         onclick="showPage('mark',this)">✅ Mark</button>
+    <button class="nav-tab"         onclick="showPage('history',this)">🗂 History</button>
+    <button class="nav-tab"         onclick="showPage('dashboard',this)">📊 Dashboard</button>
+  </div>
+</nav>
+
+<!-- ══════════════════════════════════════
+     PAGE 1 — MANAGE STUDENTS
+══════════════════════════════════════ -->
+<div class="page active" id="page-students">
+  <h1 class="page-title">👥 Manage Students</h1>
+
+  <div class="glass" style="padding:22px;margin-bottom:22px;">
+    <div class="section-label">➕ Add New Student</div>
+    <div class="students-toolbar">
+      <input class="input-field" id="newName" placeholder="Student Name" style="flex:1;min-width:160px;"/>
+      <input class="input-field" id="newRoll" placeholder="Roll No." style="width:130px;"/>
+      <input class="input-field" id="newClass" placeholder="Class / Section" style="width:150px;"/>
+      <button class="btn-primary" onclick="addStudent()">➕ Add Student</button>
+    </div>
+  </div>
+
+  <div class="glass" style="padding:22px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+      <div class="section-label" style="margin-bottom:0;">📋 Student List (<span id="studentCount">0</span>)</div>
+      <input class="input-field" id="searchStudent" placeholder="🔍 Search…" oninput="renderStudents()" style="width:200px;"/>
+    </div>
+    <div class="students-grid" id="studentsGrid">
+      <div class="empty-state"><span class="emoji">👤</span>No students yet. Add one above.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     PAGE 2 — MARK ATTENDANCE
+══════════════════════════════════════ -->
+<div class="page" id="page-mark">
+  <h1 class="page-title">✅ Mark Attendance</h1>
+
+  <div class="glass" style="padding:22px;margin-bottom:22px;">
+    <div class="mark-controls">
+      <div>
+        <div class="section-label" style="margin-bottom:6px;">📅 Date</div>
+        <input type="date" id="attendDate" class="input-field"/>
+      </div>
+      <div>
+        <div class="section-label" style="margin-bottom:6px;">📚 Subject</div>
+        <select id="subjectSelect">
+          <option value="">— Select Subject —</option>
+          <option>Mathematics</option><option>Physics</option><option>Chemistry</option>
+          <option>Computer Science</option><option>English</option><option>Biology</option>
+          <option>History</option><option>Geography</option>
+        </select>
+      </div>
+      <div style="align-self:flex-end;">
+        <button class="btn-primary" onclick="loadMarkTable()">📋 Load Students</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="glass" style="padding:22px;" id="markSection" style="display:none;">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+      <div class="section-label" style="margin-bottom:0;" id="markHeading">Mark Attendance</div>
+      <div class="bulk-bar" style="margin-bottom:0;">
+        <span class="bulk-label">Bulk:</span>
+        <button class="btn-bulk-present" onclick="bulkMark('Present')">✅ All Present</button>
+        <button class="btn-bulk-absent"  onclick="bulkMark('Absent')">❌ All Absent</button>
+        <button class="btn-primary" onclick="saveAttendance()" style="padding:7px 18px;font-size:0.85rem;">💾 Save</button>
+      </div>
+    </div>
+    <div class="att-table-wrap">
+      <table class="att-table">
+        <thead>
+          <tr><th>#</th><th>Roll No.</th><th>Name</th><th>Class</th><th>Status</th><th>Mark</th></tr>
+        </thead>
+        <tbody id="markTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     PAGE 3 — HISTORY
+══════════════════════════════════════ -->
+<div class="page" id="page-history">
+  <h1 class="page-title">🗂 Attendance History</h1>
+
+  <div class="glass" style="padding:22px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+      <div class="section-label" style="margin-bottom:0;">🔍 Filter Records</div>
+      <button class="btn-danger" onclick="clearAllHistory()">🗑 Clear All</button>
+    </div>
+    <div class="filter-bar">
+      <input type="text"  id="fStudent"  placeholder="Student name…"  oninput="renderHistory()"/>
+      <input type="text"  id="fSubject"  placeholder="Subject…"        oninput="renderHistory()"/>
+      <input type="date"  id="fDate"                                    onchange="renderHistory()"/>
+      <select id="fStatus" onchange="renderHistory()">
+        <option value="">All Status</option>
+        <option value="Present">Present</option>
+        <option value="Absent">Absent</option>
+      </select>
+    </div>
+    <div class="hist-table-wrap">
+      <table class="hist-table">
+        <thead>
+          <tr><th>#</th><th>Date</th><th>Student</th><th>Roll</th><th>Subject</th><th>Status</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="historyBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     PAGE 4 — DASHBOARD
+══════════════════════════════════════ -->
+<div class="page" id="page-dashboard">
+  <h1 class="page-title">📊 Attendance Dashboard</h1>
+
+  <div class="glass" style="padding:20px;margin-bottom:22px;">
+    <div class="dash-controls">
+      <div>
+        <div class="section-label" style="margin-bottom:6px;">👤 Select Student</div>
+        <select id="dashStudent" onchange="renderDashboard()">
+          <option value="">— All Students —</option>
+        </select>
+      </div>
+      <div>
+        <div class="section-label" style="margin-bottom:6px;">📚 Subject Filter</div>
+        <select id="dashSubject" onchange="renderDashboard()">
+          <option value="">All Subjects</option>
+          <option>Mathematics</option><option>Physics</option><option>Chemistry</option>
+          <option>Computer Science</option><option>English</option><option>Biology</option>
+          <option>History</option><option>Geography</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="summary-cards" id="summaryCards"></div>
+
+  <div class="dash-layout">
+    <div class="chart-box">
+      <h3>Overall Breakdown</h3>
+      <canvas id="pieChart"></canvas>
+      <div id="eligBadge" style="margin-top:12px;"></div>
+    </div>
+    <div class="subject-bars" id="subjectBars"></div>
+  </div>
+</div>
+
+<!-- ── EDIT MODAL ── -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <h3>✏️ Edit Record</h3>
+    <label>Date</label>
+    <input type="date" id="editDate"/>
+    <label>Student</label>
+    <input type="text" id="editStudentName" readonly style="background:#f3f4f6;cursor:not-allowed;"/>
+    <label>Subject</label>
+    <input type="text" id="editSubjectName"/>
+    <label>Status</label>
+    <select id="editStatus">
+      <option value="Present">✅ Present</option>
+      <option value="Absent">❌ Absent</option>
+    </select>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-save"   onclick="saveEdit()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── STUDENT EDIT MODAL ── -->
+<div class="modal-overlay" id="studentModal">
+  <div class="modal">
+    <h3>✏️ Edit Student</h3>
+    <label>Name</label>
+    <input type="text" id="sEditName"/>
+    <label>Roll No.</label>
+    <input type="text" id="sEditRoll"/>
+    <label>Class / Section</label>
+    <input type="text" id="sEditClass"/>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeStudentModal()">Cancel</button>
+      <button class="btn-save"   onclick="saveStudentEdit()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ══════════════════════════════════════════
+   DATA LAYER
+══════════════════════════════════════════ */
+const SK_STUDENTS   = "sam_students_v1";
+const SK_ATTENDANCE = "sam_attendance_v1";
+
+let students   = JSON.parse(localStorage.getItem(SK_STUDENTS)   || "[]");
+let attendance = JSON.parse(localStorage.getItem(SK_ATTENDANCE) || "[]");
+let editIdx    = -1;
+let sEditIdx   = -1;
+let pieChart   = null;
+
+// session mark state: { studentId: status }
+let markSession = {};
+
+function save() {
+  localStorage.setItem(SK_STUDENTS,   JSON.stringify(students));
+  localStorage.setItem(SK_ATTENDANCE, JSON.stringify(attendance));
+}
+
+/* ══════════════════════════════════════════
+   NAVIGATION
+══════════════════════════════════════════ */
+function showPage(id, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (id === 'dashboard') { populateDashStudents(); renderDashboard(); }
+  if (id === 'history')   renderHistory();
+  if (id === 'students')  renderStudents();
+  if (id === 'mark')      populateMarkStudents();
+}
+
+/* ══════════════════════════════════════════
+   TOAST
+══════════════════════════════════════════ */
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 2600);
+}
+
+/* ══════════════════════════════════════════
+   PAGE 1 — STUDENTS
+══════════════════════════════════════════ */
+function addStudent() {
+  const name  = document.getElementById("newName").value.trim();
+  const roll  = document.getElementById("newRoll").value.trim();
+  const cls   = document.getElementById("newClass").value.trim();
+  if (!name) { toast("⚠️ Student name is required."); return; }
+  if (students.find(s => s.roll === roll && roll !== "")) {
+    toast("⚠️ Roll number already exists."); return;
+  }
+  students.push({ id: Date.now(), name, roll: roll || "—", cls: cls || "—" });
+  save();
+  document.getElementById("newName").value  = "";
+  document.getElementById("newRoll").value  = "";
+  document.getElementById("newClass").value = "";
+  renderStudents();
+  toast(`✅ ${name} added.`);
+}
+
+function renderStudents() {
+  const q = document.getElementById("searchStudent").value.toLowerCase();
+  const filtered = students.filter(s =>
+    s.name.toLowerCase().includes(q) ||
+    s.roll.toLowerCase().includes(q) ||
+    s.cls.toLowerCase().includes(q)
+  );
+  document.getElementById("studentCount").textContent = students.length;
+  const grid = document.getElementById("studentsGrid");
+  if (!filtered.length) {
+    grid.innerHTML = `<div class="empty-state"><span class="emoji">👤</span>${students.length ? "No match found." : "No students yet. Add one above."}</div>`;
+    return;
+  }
+  grid.innerHTML = filtered.map(s => `
+    <div class="student-chip">
+      <div>
+        <div class="chip-name">👤 ${s.name}</div>
+        <div class="chip-roll">Roll: ${s.roll} &nbsp;|&nbsp; ${s.cls}</div>
+      </div>
+      <div class="chip-actions">
+        <button class="btn-info"   onclick="openStudentEdit(${s.id})">✏️</button>
+        <button class="btn-danger" onclick="deleteStudent(${s.id})">🗑</button>
+      </div>
+    </div>`).join("");
+}
+
+function deleteStudent(id) {
+  if (!confirm("Delete this student and all their attendance records?")) return;
+  students   = students.filter(s => s.id !== id);
+  attendance = attendance.filter(a => a.studentId !== id);
+  save(); renderStudents();
+  toast("🗑 Student deleted.");
+}
+
+function openStudentEdit(id) {
+  const s = students.find(x => x.id === id);
+  if (!s) return;
+  sEditIdx = id;
+  document.getElementById("sEditName").value  = s.name;
+  document.getElementById("sEditRoll").value  = s.roll;
+  document.getElementById("sEditClass").value = s.cls;
+  document.getElementById("studentModal").classList.add("open");
+}
+function closeStudentModal() {
+  document.getElementById("studentModal").classList.remove("open");
+  sEditIdx = -1;
+}
+function saveStudentEdit() {
+  const s = students.find(x => x.id === sEditIdx);
+  if (!s) return;
+  s.name = document.getElementById("sEditName").value.trim() || s.name;
+  s.roll = document.getElementById("sEditRoll").value.trim() || s.roll;
+  s.cls  = document.getElementById("sEditClass").value.trim() || s.cls;
+  // update name in attendance records too
+  attendance.forEach(a => { if (a.studentId === sEditIdx) a.studentName = s.name; });
+  save(); closeStudentModal(); renderStudents();
+  toast("✅ Student updated.");
+}
+
+/* ══════════════════════════════════════════
+   PAGE 2 — MARK ATTENDANCE
+══════════════════════════════════════════ */
+function populateMarkStudents() {
+  // nothing needed — students loaded on loadMarkTable
+}
+
+function loadMarkTable() {
+  const date    = document.getElementById("attendDate").value;
+  const subject = document.getElementById("subjectSelect").value;
+  if (!date)    { toast("⚠️ Select a date first.");    return; }
+  if (!subject) { toast("⚠️ Select a subject first."); return; }
+  if (!students.length) { toast("⚠️ No students added yet. Go to Students page."); return; }
+
+  markSession = {};
+  // pre-fill from existing records
+  students.forEach(s => {
+    const rec = attendance.find(a => a.studentId === s.id && a.date === date && a.subject === subject);
+    markSession[s.id] = rec ? rec.status : null;
+  });
+
+  document.getElementById("markHeading").textContent = `📋 ${subject} — ${date}`;
+  document.getElementById("markSection").style.display = "";
+  renderMarkTable(date, subject);
+}
+
+function renderMarkTable(date, subject) {
+  date    = date    || document.getElementById("attendDate").value;
+  subject = subject || document.getElementById("subjectSelect").value;
+  const tbody = document.getElementById("markTableBody");
+  tbody.innerHTML = students.map((s, i) => {
+    const st = markSession[s.id];
+    return `<tr>
+      <td>${i+1}</td>
+      <td>${s.roll}</td>
+      <td><strong>${s.name}</strong></td>
+      <td>${s.cls}</td>
+      <td>${statusPill(st)}</td>
+      <td>
+        <div class="att-btn-group">
+          <button class="att-btn present-btn ${st==='Present'?'active':''}" onclick="markOne(${s.id},'Present','${date}','${subject}')">✅ P</button>
+          <button class="att-btn absent-btn  ${st==='Absent' ?'active':''}" onclick="markOne(${s.id},'Absent', '${date}','${subject}')">❌ A</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join("");
+}
+
+function markOne(studentId, status, date, subject) {
+  markSession[studentId] = status;
+  renderMarkTable(date, subject);
+}
+
+function bulkMark(status) {
+  students.forEach(s => markSession[s.id] = status);
+  const date    = document.getElementById("attendDate").value;
+  const subject = document.getElementById("subjectSelect").value;
+  renderMarkTable(date, subject);
+}
+
+function saveAttendance() {
+  const date    = document.getElementById("attendDate").value;
+  const subject = document.getElementById("subjectSelect").value;
+  if (!date || !subject) return;
+  let saved = 0;
+  students.forEach(s => {
+    const status = markSession[s.id];
+    if (!status) return;
+    const idx = attendance.findIndex(a => a.studentId === s.id && a.date === date && a.subject === subject);
+    const rec = { studentId: s.id, studentName: s.name, roll: s.roll, cls: s.cls, date, subject, status };
+    if (idx > -1) attendance[idx] = rec;
+    else attendance.push(rec);
+    saved++;
+  });
+  save();
+  toast(`💾 Saved ${saved} record(s) for ${subject} on ${date}.`);
+}
+
+function statusPill(st) {
+  if (st === "Present") return `<span class="status-pill present">✅ Present</span>`;
+  if (st === "Absent")  return `<span class="status-pill absent">❌ Absent</span>`;
+  return `<span class="status-pill none">— Unmarked</span>`;
+}
+
+/* ══════════════════════════════════════════
+   PAGE 3 — HISTORY
+══════════════════════════════════════════ */
+function renderHistory() {
+  const fStu  = document.getElementById("fStudent").value.toLowerCase();
+  const fSub  = document.getElementById("fSubject").value.toLowerCase();
+  const fDate = document.getElementById("fDate").value;
+  const fStat = document.getElementById("fStatus").value;
+
+  const filtered = attendance.filter(a =>
+    (!fStu  || a.studentName.toLowerCase().includes(fStu)) &&
+    (!fSub  || a.subject.toLowerCase().includes(fSub)) &&
+    (!fDate || a.date === fDate) &&
+    (!fStat || a.status === fStat)
+  ).slice().reverse();
+
+  const tbody = document.getElementById("historyBody");
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="7" class="empty-msg">No records found.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = filtered.map((a, i) => {
+    const realIdx = attendance.lastIndexOf(
+      attendance.slice().reverse().find(x => x.studentId===a.studentId && x.date===a.date && x.subject===a.subject)
+    );
+    // reliable index
+    const ri = attendance.findIndex(x => x.studentId===a.studentId && x.date===a.date && x.subject===a.subject);
+    return `<tr>
+      <td>${filtered.length - i}</td>
+      <td>${a.date}</td>
+      <td><strong>${a.studentName}</strong></td>
+      <td>${a.roll}</td>
+      <td>${a.subject}</td>
+      <td>${statusPill(a.status)}</td>
+      <td>
+        <button class="btn-edit-sm" onclick="openEdit(${ri})">✏️ Edit</button>
+        <button class="btn-del-sm"  onclick="deleteRecord(${ri})">🗑</button>
+      </td>
+    </tr>`;
+  }).join("");
+}
+
+function openEdit(idx) {
+  editIdx = idx;
+  const a = attendance[idx];
+  document.getElementById("editDate").value        = a.date;
+  document.getElementById("editStudentName").value = a.studentName;
+  document.getElementById("editSubjectName").value = a.subject;
+  document.getElementById("editStatus").value      = a.status;
+  document.getElementById("editModal").classList.add("open");
+}
+function closeModal() {
+  document.getElementById("editModal").classList.remove("open");
+  editIdx = -1;
+}
+function saveEdit() {
+  if (editIdx < 0) return;
+  attendance[editIdx].date    = document.getElementById("editDate").value;
+  attendance[editIdx].subject = document.getElementById("editSubjectName").value;
+  attendance[editIdx].status  = document.getElementById("editStatus").value;
+  save(); closeModal(); renderHistory();
+  toast("✅ Record updated.");
+}
+function deleteRecord(idx) {
+  attendance.splice(idx, 1);
+  save(); renderHistory();
+  toast("🗑 Record deleted.");
+}
+function clearAllHistory() {
+  if (!confirm("Delete ALL attendance records?")) return;
+  attendance = []; save(); renderHistory();
+  toast("🗑 All records cleared.");
+}
+
+/* ══════════════════════════════════════════
+   PAGE 4 — DASHBOARD
+══════════════════════════════════════════ */
+function populateDashStudents() {
+  const sel = document.getElementById("dashStudent");
+  const cur = sel.value;
+  sel.innerHTML = `<option value="">— All Students —</option>` +
+    students.map(s => `<option value="${s.id}" ${s.id==cur?'selected':''}>${s.name} (${s.roll})</option>`).join("");
+}
+
+function renderDashboard() {
+  const stuId  = document.getElementById("dashStudent").value;
+  const subFil = document.getElementById("dashSubject").value;
+
+  let recs = attendance;
+  if (stuId)  recs = recs.filter(a => a.studentId == stuId);
+  if (subFil) recs = recs.filter(a => a.subject === subFil);
+
+  const total   = recs.length;
+  const present = recs.filter(a => a.status === "Present").length;
+  const absent  = total - present;
+  const pct     = total ? Math.round((present / total) * 100) : 0;
+  const eligible = pct >= 75;
+
+  // Summary cards
+  document.getElementById("summaryCards").innerHTML = `
+    <div class="summary-card"><div class="s-val purple-text">${total}</div><div class="s-lbl">Total Classes</div></div>
+    <div class="summary-card"><div class="s-val green-text">${present}</div><div class="s-lbl">Present</div></div>
+    <div class="summary-card"><div class="s-val red-text">${absent}</div><div class="s-lbl">Absent</div></div>
+    <div class="summary-card"><div class="s-val ${eligible?'green-text':'red-text'}">${pct}%</div><div class="s-lbl">Attendance %</div></div>`;
+
+  // Eligibility badge
+  document.getElementById("eligBadge").innerHTML =
+    `<span class="badge ${eligible?'eligible':'ineligible'}">${eligible?'✓ Eligible':'✗ Not Eligible'}</span>`;
+
+  // Pie chart
+  if (pieChart) { pieChart.destroy(); pieChart = null; }
+  pieChart = new Chart(document.getElementById("pieChart"), {
+    type: "pie",
+    data: {
+      labels: ["Present","Absent"],
+      datasets: [{
+        data: [present || 0, absent || 0],
+        backgroundColor: [eligible ? "#22c55e" : "#ef4444", "#e9d5ff"],
+        borderWidth: 2, borderColor: "#fff"
+      }]
+    },
+    options: {
+      plugins: {
+        legend: { position: "bottom" },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed}` } }
+      }
+    }
+  });
+
+  // Subject bars
+  const subjects = ["Mathematics","Physics","Chemistry","Computer Science","English","Biology","History","Geography"];
+  const subList  = subFil ? [subFil] : subjects;
+  const barsEl   = document.getElementById("subjectBars");
+
+  barsEl.innerHTML = subList.map(sub => {
+    let subRecs = attendance.filter(a => a.subject === sub);
+    if (stuId) subRecs = subRecs.filter(a => a.studentId == stuId);
+    const t = subRecs.length;
+    const p = subRecs.filter(a => a.status === "Present").length;
+    const pc = t ? Math.round((p/t)*100) : 0;
+    const green = pc >= 75;
+    return `<div class="bar-card">
+      <div class="bar-header">
+        <span class="bar-name"><span class="dot" style="background:${green?'#22c55e':'#ef4444'}"></span>${sub}</span>
+        <span class="bar-pct ${green?'green-text':'red-text'}">${pc}%</span>
+      </div>
+      <div class="bar-sub">${p} / ${t} classes attended</div>
+      <div class="bar-track"><div class="bar-fill ${green?'bar-green':'bar-red'}" style="width:${pc}%"></div></div>
+    </div>`;
+  }).join("");
+}
+
+/* ══════════════════════════════════════════
+   INIT
+══════════════════════════════════════════ */
+document.getElementById("attendDate").value = new Date().toISOString().split("T")[0];
+renderStudents();
+</script>
+</body>
+</html>
